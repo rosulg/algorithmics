@@ -25,8 +25,8 @@ function drawGraph(G, bestScoreNode, bestScoreNodeColor) {
     jsnx.draw(G, drawConfig);
 }
 
-async function main() {
-    const graph = await generate_gnp_graph(10, 1/2, false);
+async function drawAndCalculate(n, p, directed) {
+    const graph = await generate_gnp_graph(n, p, directed);
     // eigenvector centrality (also called eigencentrality) is a measure of the influence of a node in a network.
     const degreeCentrality = jsnx.eigenvectorCentrality(graph);
     // closeness centrality (or closeness) of a node is a measure of centrality in a network,
@@ -54,12 +54,24 @@ async function main() {
     const bestScore = scores[0];
 
     drawGraph(graph, bestScore.node, 'limegreen');
-
 }
+
+
+// TODO: Move to different file
 
 // When browser has loaded the site...
 window.onload = async () => {
-    await main();
+    await drawAndCalculate(10, 1/2, true);
 };
+
+function generate() {
+    const edgeProbability = +document.getElementById('edgeProbability').value / 100;
+    const numberOfNodes = +document.getElementById('numberOfNodes').value;
+    if (!isNaN(edgeProbability) && !isNaN(numberOfNodes)) {
+        drawAndCalculate(numberOfNodes, edgeProbability, true);
+    } else {
+        alert('Wrong input')
+    }
+}
 
 
