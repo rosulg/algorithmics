@@ -8,6 +8,7 @@ body {
 .w-sidebar {
     width: 275px;
     max-width: 275px;
+    overflow-y: auto;
 }
 
 .vh-100 {
@@ -28,6 +29,17 @@ body {
     margin-left: -275px;
     left: -0.05%;
     transition: all .15s linear;
+}
+
+.color-palette {
+    height: 40px;
+    width: 100%;
+    color: white;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 @media (max-width:768px) {

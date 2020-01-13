@@ -1,10 +1,8 @@
 async function generate_gnp_graph(numberOfNodes, probabilityOfEdgeCreation, directed) {
-    // const n = Math.pow(2, i);
-    // const p = 2 * i / n;
     return await jsnx.genGnpRandomGraph(numberOfNodes, probabilityOfEdgeCreation, directed);
 }
 
-function drawGraph(G, bestScoreNode, bestScoreNodeColor) {
+function drawGraph(G, scores) {
     const drawConfig = {
         element: '#app-canvas',
         withLabels: true,
@@ -13,11 +11,7 @@ function drawGraph(G, bestScoreNode, bestScoreNodeColor) {
         },
         nodeStyle: {
             fill: function(d) {
-                // Color the best node score here.
-                if (d.node === bestScoreNode) {
-                    return bestScoreNodeColor;
-                }
-                return d.data.color;
+                return colorOfNode(d.node, scores);
             }
         },
         labelStyle: {fill: 'white'},
@@ -35,7 +29,7 @@ async function drawAndCalculate(n, p, directed) {
     const closenessCentrality = jsnx.edgeBetweennessCentrality(graph);
 
     // returns an array where each element is node and it's score
-    const scores = graph.nodes().map(node => {
+    this.scores = graph.nodes().map(node => {
         let score = degreeCentrality.get(node);
         // Add up the edge betweenness centrality for all nodes from "this" node
         graph.nodes().forEach(n => {
@@ -47,22 +41,11 @@ async function drawAndCalculate(n, p, directed) {
     });
 
     // Sort scores descending
-    scores.sort((a, b) => b.score - a.score);
-    console.log(scores, 'scores')
+    this.scores.sort((a, b) => b.score - a.score);
 
-    // Largest score is then the first element
-    const bestScore = scores[0];
-
-    drawGraph(graph, bestScore.node, 'limegreen');
+    paintColorPalette();
+    drawGraph(graph, this.scores);
 }
-
-
-// TODO: Move to different file
-
-// When browser has loaded the site...
-window.onload = async () => {
-    await drawAndCalculate(10, 1/2, true);
-};
 
 function generate() {
     const edgeProbability = +document.getElementById('edgeProbability').value / 100;
@@ -72,6 +55,38 @@ function generate() {
     } else {
         alert('Wrong input')
     }
+}
+
+// ----- Helpers ------
+
+//Function to convert hex format to a rgb color
+function rgb2hex(rgb){
+    rgb = rgb.match(/^rgba?[\s+]?\([\s+]?(\d+)[\s+]?,[\s+]?(\d+)[\s+]?,[\s+]?(\d+)[\s+]?/i);
+    return (rgb && rgb.length === 4) ? "#" +
+        ("0" + parseInt(rgb[1],10).toString(16)).slice(-2) +
+        ("0" + parseInt(rgb[2],10).toString(16)).slice(-2) +
+        ("0" + parseInt(rgb[3],10).toString(16)).slice(-2) : '';
+}
+
+// Draw the color palette on sidebar
+function paintColorPalette() {
+     const html = this.scores.slice(0, 10).map(score => {
+        const color = colorOfNode(score.node, this.scores);
+        return `<div class="color-palette" style="background-color: ${color}"><strong>${score.node}</strong></div>`;
+    });
+     document.getElementById('palette').innerHTML = html.join('');
+}
+
+function colorOfNode(node, scores) {
+    const bestScore = scores[0].score;
+    const score = scores.find(score => score.node === node).score;
+    const normalizedScore = score / bestScore;
+    let rgb = `rgba(50, 120, ${Math.round(255 * normalizedScore)});`;
+    if (normalizedScore === 1) {
+        rgb = `rgba(0, ${Math.round(255 * normalizedScore)}, 0);`;
+    }
+    const color = rgb2hex(rgb);
+    return color;
 }
 
 
