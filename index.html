@@ -49,33 +49,76 @@
         <div class="col-3 p-0 vh-100 h-100 text-white w-sidebar navbar-collapse collapse d-none d-md-flex sidebar">
             <!-- fixed sidebar -->
             <div class="navbar-dark bg-dark position-fixed h-100 w-sidebar">
-                <h4 class="px-3 pt-3">Options</h4>
+<!--                <h4 class="px-3 pt-3">Options</h4>-->
                 <div class="px-3 pt-3">
-
-                    <div class="mb-3">
-                        <label>Number of nodes</label>
-                        <input class="form-control" id="numberOfNodes" min="0" placeholder="number of nodes" step="1"
-                               type="number">
-                    </div>
-
-                    <div class="mb-3">
-                        <label>Edge probability (%)</label>
-                        <input class="form-control" id="edgeProbability" max="100" min="0" placeholder="probability of an edge"
-                               step="1" type="number">
-                    </div>
-
-                    <button class="btn btn-success" id="generate-button" onclick="generate()" type="button">Generate
-                    </button>
-
+                    <button id="optionsButton" class="btn btn-primary" onclick="switchTabs('options')" type="button">Options</button>
+                    <button id="additionalOptionsButton" class="btn btn-light" onclick="switchTabs('additionalOptions')" type="button">Additional</button>
                 </div>
 
 
-                <div class="px-3 pt-3">
-                    <h6>TOP 10 (desc)</h6>
-                    <div id="palette"></div>
+                <div id="options">
+                    <div class="px-3 pt-3">
+
+                        <div class="mb-3">
+                            <label>Number of nodes</label>
+                            <input class="form-control" id="numberOfNodes" min="0" placeholder="Number of nodes" step="1"
+                                   type="number">
+                        </div>
+
+                        <div class="mb-3">
+                            <label>Edge probability (%)</label>
+                            <input class="form-control" id="edgeProbability" max="100" min="0" placeholder="Probability of an edge"
+                                   step="1" type="number">
+                        </div>
+
+                        <div class="mb-3">
+                            <label>Directed</label>
+                            <div class="input-group-prepend">
+                                <input id="directed" hidden type="checkbox">
+                                <button id="directionButton" class="btn btn-danger" type="button" onclick="directed()">FALSE</button>
+                            </div>
+                        </div>
+
+                        <button class="btn btn-success" id="generate-button" onclick="generate()" type="button">Generate</button>
+                    </div>
+
+                    <div class="px-3 pt-3">
+                        <h6>TOP 10 (desc)</h6>
+                        <div id="palette"></div>
+                    </div>
                 </div>
 
+                <div id="additionalOptions">
+                    <div class="px-3 pt-3">
 
+                        <div class="mb-3">
+                            <label>Node number to delete</label>
+                            <input class="form-control" id="deleteNode" min="0" placeholder="Node number to delete" step="1"
+                                   type="number">
+                        </div>
+                        <div>
+                            <button class="btn btn-danger mt-3" onclick="deleteNode()" type="button">Delete node</button>
+                        </div>
+
+                        <button class="btn btn-success mt-3 mb-3" onclick="addNode()" type="button">Add node</button>
+
+                        <div class="mb-3">
+                            <label>Edge from</label>
+                            <input class="form-control" id="edgeFrom" min="0" placeholder="Node number" step="1"
+                                   type="number">
+                        </div>
+
+                        <div class="mb-3">
+                            <label>Edge to</label>
+                            <input class="form-control" id="edgeTo" min="0" placeholder="Node number" step="1"
+                                   type="number">
+                        </div>
+
+                        <button class="btn btn-success mt-3 mb-3" onclick="addEdge()" type="button">Add edge</button>
+
+
+                    </div>
+                </div>
             </div>
         </div>
         <div class="col p-3">
@@ -89,7 +132,7 @@
 <script>
     // When browser has loaded the site...
     window.onload = async () => {
-        await drawAndCalculate(10, 1 / 2, true);
+        await generateAndDraw(10, 1 / 2, document.getElementById('directed').checked);
     };
 </script>
 

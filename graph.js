@@ -1,57 +1,165 @@
-async function generate_gnp_graph(numberOfNodes, probabilityOfEdgeCreation, directed) {
+// Global variables
+this.graph;
+
+async function generateGraph(numberOfNodes, probabilityOfEdgeCreation, directed) {
     return await jsnx.genGnpRandomGraph(numberOfNodes, probabilityOfEdgeCreation, directed);
 }
 
-function drawGraph(G, scores) {
+function drawGraph(graph, result) {
     const drawConfig = {
         element: '#app-canvas',
         withLabels: true,
+        weighted: true,
         edgeStyle: {
-            'stroke-width': 1
+            'stroke-width': 3,
+            fill: function (d) {
+                if (result && d.edge.toString() === result.centralEdge.key) {
+                    return 'red'
+                }
+                return d.data.color;
+            },
+        },
+        nodeAttr: {
+            id: function (d) {
+                return 'node-' + d.node; // assign unique ID
+            }
         },
         nodeStyle: {
             fill: function (d) {
-                return colorOfNode(d.node, scores);
-            }
+                if (result && result.scores) {
+                    return colorOfNode(d.node, result.scores);
+                }
+                return d.data.color;
+            },
         },
-        labelStyle: {fill: 'white'},
+
+        labelStyle: {
+            fill: 'white'
+        },
     };
-    jsnx.draw(G, drawConfig);
+    jsnx.draw(graph, drawConfig, true);
 }
 
-async function drawAndCalculate(n, p, directed) {
-    const graph = await generate_gnp_graph(n, p, directed);
-    // eigenvector centrality (also called eigencentrality) is a measure of the influence of a node in a network.
-    const degreeCentrality = jsnx.eigenvectorCentrality(graph);
+
+function calculateResult(graph) {
+    let degreeCentrality = jsnx.eigenvectorCentrality(graph, { maxIter: 1000, weight: null });
+
     // closeness centrality (or closeness) of a node is a measure of centrality in a network,
     // calculated as the sum of the length of the shortest paths between the node and all other nodes in the graph.
     // Thus the more central a node is, the closer it is to all other nodes.
-    const closenessCentrality = jsnx.edgeBetweennessCentrality(graph);
+    // https://www.hindawi.com/journals/ijcom/2014/241723/
+    // High centrality scores indicate that a vertex lies on a considerable fraction of shortest paths connecting pairs of vertices.
+    const betweennessCentraility = jsnx.betweennessCentrality(graph, {
+        k: graph.nodes().length,
+        normalized: true,
+        weight: null,
+        endpoints: false
+    });
+
+    // Edge betweenness centrality
+    // https://link.springer.com/referenceworkentry/10.1007%2F978-1-4419-9863-7_874
+    const edgeBetweennessCentrality = jsnx.edgeBetweennessCentrality(graph, { normalized: true, weight: null });
+
+    const centralEdge = {
+        key: null,
+        score: 0,
+    };
 
     // returns an array where each element is node and it's score
-    this.scores = graph.nodes().map(node => {
-        let score = degreeCentrality.get(node);
+    const scores = graph.nodes().map(node => {
+        let score = degreeCentrality.get(node) + betweennessCentraility.get(node);
+
         // Add up the edge betweenness centrality for all nodes from "this" node
         graph.nodes().forEach(n => {
-            // Add betweeness, if undefined add 0.
-            score += closenessCentrality.get([node, n]) || 0;
+            // Add edge betweeness, if undefined add 0.
+            const key = [node, n];
+            const edgeScore = edgeBetweennessCentrality.get(key) || 0;
+            if (edgeScore > centralEdge.score) {
+                centralEdge.score = edgeScore;
+                centralEdge.key = key.toString();
+            }
+            score += edgeScore;
         });
 
         return {score, node};
     });
 
-    // Sort scores descending
-    this.scores.sort((a, b) => b.score - a.score);
 
-    paintColorPalette();
-    drawGraph(graph, this.scores);
+    // Sort scores descending
+    scores.sort((a, b) => b.score - a.score);
+
+    return {scores, centralEdge};
 }
 
-function generate() {
+async function generate() {
     const edgeProbability = +document.getElementById('edgeProbability').value / 100;
     const numberOfNodes = +document.getElementById('numberOfNodes').value;
-    if (!isNaN(edgeProbability) && !isNaN(numberOfNodes)) {
-        drawAndCalculate(numberOfNodes, edgeProbability, true);
+    const directed = document.getElementById('directed').checked;
+    if (edgeProbability && numberOfNodes && !isNaN(edgeProbability) && !isNaN(numberOfNodes)) {
+        await generateAndDraw(numberOfNodes, edgeProbability, directed);
+    } else {
+        alert('Wrong input')
+    }
+}
+
+async function generateAndDraw(numberOfNodes, edgeProbability, directed) {
+    const graph = await generateGraph(numberOfNodes, edgeProbability, directed);
+    draw(graph);
+}
+
+function draw(graph) {
+    try {
+        this.graph = graph;
+        const result = calculateResult(graph);
+
+        drawGraph(graph, result);
+        paintColorPalette(result.scores);
+    } catch(error) {
+        console.log(error);
+        alert(error && error.message ? error.message : 'An error occurred');
+    }
+}
+
+function directed() {
+    const value = document.getElementById('directed').checked;
+    const toggledValue = !value;
+    document.getElementById('directed').checked = toggledValue;
+
+    // Set class and innerHTML for the button
+    const button = document.getElementById('directionButton');
+    button.textContent = toggledValue.toString().toUpperCase();
+    button.className = toggledValue ? 'btn btn-success' : 'btn btn-danger';
+}
+
+function deleteNode() {
+    const element = document.getElementById('deleteNode').value;
+    const node = +element;
+    if (element && this.graph.nodes().indexOf(node) !== -1) {
+        try {
+            const element = document.getElementById('node-' + node);
+            this.graph.removeNode(+element.id.split('-')[1]);
+            draw(this.graph);
+        } catch (error) {
+            console.log(error, 'error');
+            alert(error && error.message ? error.message : 'An error occurred');
+        }
+    } else {
+        alert('Node does not exist')
+    }
+}
+
+function addNode() {
+    const nextNodeNumber = this.graph.nodes().length;
+    this.graph.addNode(nextNodeNumber);
+    draw(this.graph);
+}
+
+function addEdge() {
+    const edgeFrom = document.getElementById('edgeFrom').value;
+    const edgeTo = document.getElementById('edgeTo').value;
+    if (edgeFrom && edgeTo) {
+        this.graph.addEdge(+edgeFrom, +edgeTo);
+        draw(this.graph);
     } else {
         alert('Wrong input')
     }
@@ -69,17 +177,23 @@ function rgb2hex(rgb) {
 }
 
 // Draw the color palette on sidebar
-function paintColorPalette() {
-    const html = this.scores.slice(0, 10).map(score => {
-        const color = colorOfNode(score.node, this.scores);
+function paintColorPalette(scores) {
+    const html = scores.slice(0, 10).map(score => {
+        const color = colorOfNode(score.node, scores);
         return `<div class="color-palette" style="background-color: ${color}"><strong>${score.node}</strong></div>`;
     });
     document.getElementById('palette').innerHTML = html.join('');
 }
 
+// Get the color of the node based on score
 function colorOfNode(node, scores) {
+    let score = 0;
+
     const bestScore = scores[0].score;
-    const score = scores.find(score => score.node === node).score;
+    const result = scores.find(score => score.node === node);
+    if (result) {
+        score = result.score;
+    }
     const normalizedScore = score / bestScore;
     let rgb = `rgba(50, 120, ${Math.round(255 * normalizedScore)});`;
     if (normalizedScore === 1) {
@@ -89,4 +203,16 @@ function colorOfNode(node, scores) {
     return color;
 }
 
-
+// Switch between tabs in html
+function switchTabs(tabId) {
+    const tabIds = ['options', 'additionalOptions'];
+    tabIds.forEach(id => {
+        if (id !== tabId) {
+            document.getElementById(id).setAttribute('hidden', '');
+            document.getElementById(id + 'Button').className = 'btn btn-light';
+        } else {
+            document.getElementById(id).removeAttribute('hidden');
+            document.getElementById(id + 'Button').className = 'btn btn-primary';
+        }
+    });
+}
