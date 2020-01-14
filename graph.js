@@ -84,13 +84,13 @@ function calculateResult(graph, directed) {
                 edgeScore = edgeBetweennessCentrality.get([node, n]) || 0 + edgeBetweennessCentrality.get([n, node]) || 0
             }
             if (edgeScore > centralEdge.score) {
-                centralEdge.score = edgeScore;
+                centralEdge.score = round(edgeScore);
                 centralEdge.key = directed ? [node, n].toString() : [node, n].toString() + '-' + [n, node].toString();
             }
             score += edgeScore;
         });
 
-        return {score, node, centralEdge};
+        return { score: round(score), node, centralEdge};
     });
 
     const centralEdgeScores = scores.map(score => score.centralEdge);
@@ -234,5 +234,5 @@ function switchTabs(tabId) {
 }
 
 function round(number) {
-    return Math.round(number * 1000) / 1000
+    return Math.round(number * 100000) / 100000
 }
