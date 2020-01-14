@@ -5,16 +5,21 @@ async function generateGraph(numberOfNodes, probabilityOfEdgeCreation, directed)
     return await jsnx.genGnpRandomGraph(numberOfNodes, probabilityOfEdgeCreation, directed);
 }
 
-function drawGraph(graph, result) {
+function drawGraph(graph, result, directed) {
     const drawConfig = {
         element: '#app-canvas',
         withLabels: true,
-        weighted: true,
+        weights: false,
         edgeStyle: {
             'stroke-width': 3,
             fill: function (d) {
-                if (result && d.edge.toString() === result.centralEdge.key) {
-                    return 'red'
+                if (result) {
+                    const bestEdge = result.centralEdgeScores[0];
+                    const unique = result.centralEdgeScores.filter(edgeScore => bestEdge.score === edgeScore.score).length === (directed ? 1 : 2);
+                    const currentKey = d.edge.toString();
+                    if (unique && ((currentKey === bestEdge.key) || (currentKey === bestEdge.key.split('-')[0] || currentKey === bestEdge.key.split('-')[1]))) {
+                        return 'red';
+                    }
                 }
                 return d.data.color;
             },
@@ -37,12 +42,12 @@ function drawGraph(graph, result) {
             fill: 'white'
         },
     };
-    jsnx.draw(graph, drawConfig, true);
+    jsnx.draw(graph, drawConfig, false);
 }
 
 
-function calculateResult(graph) {
-    let degreeCentrality = jsnx.eigenvectorCentrality(graph, { maxIter: 1000, weight: null });
+function calculateResult(graph, directed) {
+    let degreeCentrality = jsnx.eigenvectorCentrality(graph, { maxIter: 1000, weights: null });
 
     // closeness centrality (or closeness) of a node is a measure of centrality in a network,
     // calculated as the sum of the length of the shortest paths between the node and all other nodes in the graph.
@@ -52,43 +57,49 @@ function calculateResult(graph) {
     const betweennessCentraility = jsnx.betweennessCentrality(graph, {
         k: graph.nodes().length,
         normalized: true,
-        weight: null,
-        endpoints: false
+        endpoints: false,
+        weights: null
     });
 
     // Edge betweenness centrality
     // https://link.springer.com/referenceworkentry/10.1007%2F978-1-4419-9863-7_874
-    const edgeBetweennessCentrality = jsnx.edgeBetweennessCentrality(graph, { normalized: true, weight: null });
-
-    const centralEdge = {
-        key: null,
-        score: 0,
-    };
+    const edgeBetweennessCentrality = jsnx.edgeBetweennessCentrality(graph, { normalized: true, weights: null });
 
     // returns an array where each element is node and it's score
     const scores = graph.nodes().map(node => {
         let score = degreeCentrality.get(node) + betweennessCentraility.get(node);
 
+        const centralEdge = {
+            key: null,
+            score: 0,
+        };
+
         // Add up the edge betweenness centrality for all nodes from "this" node
         graph.nodes().forEach(n => {
             // Add edge betweeness, if undefined add 0.
-            const key = [node, n];
-            const edgeScore = edgeBetweennessCentrality.get(key) || 0;
+            let edgeScore = 0;
+            if (directed) {
+                edgeScore = edgeBetweennessCentrality.get([node, n]) || 0;
+            } else {
+                edgeScore = edgeBetweennessCentrality.get([node, n]) || 0 + edgeBetweennessCentrality.get([n, node]) || 0
+            }
             if (edgeScore > centralEdge.score) {
                 centralEdge.score = edgeScore;
-                centralEdge.key = key.toString();
+                centralEdge.key = directed ? [node, n].toString() : [node, n].toString() + '-' + [n, node].toString();
             }
             score += edgeScore;
         });
 
-        return {score, node};
+        return {score, node, centralEdge};
     });
 
+    const centralEdgeScores = scores.map(score => score.centralEdge);
 
     // Sort scores descending
     scores.sort((a, b) => b.score - a.score);
+    centralEdgeScores.sort((a, b) => b.score - a.score);
 
-    return {scores, centralEdge};
+    return {scores, centralEdgeScores};
 }
 
 async function generate() {
@@ -110,12 +121,13 @@ async function generateAndDraw(numberOfNodes, edgeProbability, directed) {
 function draw(graph) {
     try {
         this.graph = graph;
-        const result = calculateResult(graph);
+        const directed = document.getElementById('directed').checked;
+        const result = calculateResult(graph, directed);
 
-        drawGraph(graph, result);
+        drawGraph(graph, result, directed);
         paintColorPalette(result.scores);
     } catch(error) {
-        console.log(error);
+        console.log(error, 'error');
         alert(error && error.message ? error.message : 'An error occurred');
     }
 }
@@ -154,11 +166,15 @@ function addNode() {
     draw(this.graph);
 }
 
-function addEdge() {
+function addEdge(deleteEdge) {
     const edgeFrom = document.getElementById('edgeFrom').value;
     const edgeTo = document.getElementById('edgeTo').value;
     if (edgeFrom && edgeTo) {
-        this.graph.addEdge(+edgeFrom, +edgeTo);
+        if (deleteEdge) {
+            this.graph.removeEdge(+edgeFrom, +edgeTo);
+        } else {
+            this.graph.addEdge(+edgeFrom, +edgeTo);
+        }
         draw(this.graph);
     } else {
         alert('Wrong input')
@@ -215,4 +231,8 @@ function switchTabs(tabId) {
             document.getElementById(id + 'Button').className = 'btn btn-primary';
         }
     });
+}
+
+function round(number) {
+    return Math.round(number * 1000) / 1000
 }

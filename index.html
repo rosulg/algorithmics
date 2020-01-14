@@ -114,8 +114,9 @@
                                    type="number">
                         </div>
 
-                        <button class="btn btn-success mt-3 mb-3" onclick="addEdge()" type="button">Add edge</button>
+                        <button class="btn btn-success mt-3" onclick="addEdge()" type="button">Add edge</button>
 
+                        <button class="btn btn-danger mt-3" onclick="addEdge(true)" type="button">Delete edge</button>
 
                     </div>
                 </div>
@@ -132,7 +133,7 @@
 <script>
     // When browser has loaded the site...
     window.onload = async () => {
-        await generateAndDraw(10, 1 / 2, document.getElementById('directed').checked);
+        await generateAndDraw(3, 1, false, document.getElementById('directed').checked);
     };
 </script>
 
